@@ -1,0 +1,43 @@
+# Choose Mode:
+# 1 : Download Sub
+# 2 : Change Time
+# 3 : Translate
+
+#For Sync Subtitle
+# Please choose the source directory:
+#        1. File from downloaded_en directory
+#        2. File from translated_srt directory
+
+#For Translating
+#Please choose the source directory:
+#        1. File from downloaded_en directory
+#        2. File from change_time directory
+
+
+# Note : Please rename this file into config.yaml
+
+MODE: # fill with int value. example: 1 -> means just download the subtitle from opensubtitles.com
+
+# Fill if you are using MODE = 1
+USERNAME: "<your username in opensubtitles.com>"
+PASSWORD: "<your password in opensubtitles.com>"
+
+# Type TV Show
+IMDB_ID_TV_SHOW: "<input your tv-show id>"  # example: https://www.imdb.com/title/tt26628595/ your id is : tt26628595
+SEASON: # input tv-show season (int) example: 1
+FROM_EPISODE: # input tv-show (episode) example: 1
+TO_EPISODE: # input tv-show (episode) if just one episode fill same with <from episode> example: 1
+
+# Resync The Subtitle Time
+CHANGE_TIME:
+  MILLISECOND: # Fill with int value. example: 1000 -> it means 1 second
+  INPUT_PATH: # Fill with int value. example: 1 -> that means your subtitle file is in srt_downloaded_en
+
+# Translate the Subtitle
+TRANSLATE:
+  LLM_MODEL: "" # Soon. Just keep it empty
+  LLM_URL: "" # Soon. Just keep it empty
+  API_KEY: "" # Soon. Just keep it empty
+  INPUT_PATH: # Fill with int value. example: 2 -> Means your subtitle file in change_time folder will be used
+  TARGET_LANGUAGE: "<Fill your language>" # get know you language support here https://cloud.google.com/translate/docs/languages
+
