@@ -6,7 +6,7 @@
 #For Sync Subtitle
 # Please choose the source directory:
 #        1. File from downloaded_en directory
-#        2. File from translated_srt directory
+#        2. File from translated_subtitle directory
 
 #For Translating
 #Please choose the source directory:
@@ -31,7 +31,7 @@ TO_EPISODE: # input tv-show (episode) if just one episode fill same with <from e
 # Resync The Subtitle Time
 CHANGE_TIME:
   MILLISECOND: # Fill with int value. example: 1000 -> it means 1 second
-  INPUT_PATH: # Fill with int value. example: 1 -> that means your subtitle file is in srt_downloaded_en
+  INPUT_PATH: # Fill with int value. example: 1 -> that means your subtitle file is in downloaded_subtitle_en
 
 # Translate the Subtitle
 TRANSLATE:
