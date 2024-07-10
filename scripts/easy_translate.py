@@ -3,21 +3,12 @@ from easygoogletranslate import EasyGoogleTranslate
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from tqdm import tqdm
 
-def split_text(text, max_length=5000):
-    chunks = []
-    while len(text) > max_length:
-        split_at = text.rfind(' ', 0, max_length)
-        if split_at == -1:
-            split_at = max_length
-        chunks.append(text[:split_at])
-        text = text[split_at:].strip()
-    chunks.append(text)
-    return chunks
 
 def batch_translate(translator, texts, target_language):
     concatenated_text = "\n".join(texts)
     translated_text = translator.translate(concatenated_text)
     return translated_text.split('\n')
+
 
 def translate_subtitles(subtitle_path, target_path, *, target_language):
     subs = pysrt.open(subtitle_path)
@@ -45,4 +36,3 @@ def translate_subtitles(subtitle_path, target_path, *, target_language):
                 pbar.update(len(batch))
 
     subs.save(target_path, encoding='utf-8')
-
