@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import stat
 import shutil
@@ -30,7 +31,10 @@ def make_writable_and_remove(path):
     shutil.rmtree(path, onerror=handle_remove_error)
 
 
-def download_sub(id_movie, id_tv_show, season, from_eps, to_eps, username, password):
+def download_sub(id_movies, id_tv_show, season, from_eps, to_eps, username, password):
+    def sanitize_title(title):
+        # Remove invalid characters
+        return re.sub(r'[<>:"/\\|?*]', '', title)
     def download_and_save_subtitle(sub_id, sub_title, sub_path, username, password):
         user_token = getUserToken(username=username, password=password)
         sub_link = getSubtitlesInfo(user_token, sub_id)['link']
@@ -47,23 +51,24 @@ def download_sub(id_movie, id_tv_show, season, from_eps, to_eps, username, passw
         destroyUserToken(user_token)
         print(f'Done! Check your file in {sub_path}')
 
-    if type_mode == 1:
-        subtitlesResultList = searchSubtitles(imdb_id=id_movie, order_by="download_count",
-                                              order_direction="desc", languages='en')
-        sub_id = subtitlesResultList['data'][0]['attributes']['files'][0]['file_id']
-        sub_title = subtitlesResultList['data'][0]['attributes']['feature_details']['title']
-        download_sub_path = os.path.join(downloaded_en_dir, sub_title)
-        download_and_save_subtitle(sub_id, sub_title, download_sub_path, username, password)
-
-    else:
-        for eps in range(from_eps, to_eps + 1):
-            subtitlesResultList = searchSubtitles(parent_imdb_id=id_tv_show, order_by="download_count",
-                                                  order_direction="desc", languages='en', season_number=season,
-                                                  episode_number=eps)
+    for id_movie in id_movies:
+        if type_mode == 1:
+            subtitlesResultList = searchSubtitles(imdb_id=id_movie, order_by="download_count",
+                                                  order_direction="desc", languages='en')
             sub_id = subtitlesResultList['data'][0]['attributes']['files'][0]['file_id']
-            sub_title = subtitlesResultList['data'][0]['attributes']['feature_details']['parent_title']
-            episode_path = os.path.join(downloaded_en_dir, sub_title, f"episode_{eps}")
-            download_and_save_subtitle(sub_id, f'episode_{eps}', episode_path, username, password)
+            sub_title = sanitize_title(subtitlesResultList['data'][0]['attributes']['feature_details']['title'])
+            download_sub_path = os.path.join(downloaded_en_dir, sub_title)
+            download_and_save_subtitle(sub_id, sub_title, download_sub_path, username, password)
+
+        else:
+            for eps in range(from_eps, to_eps + 1):
+                subtitlesResultList = searchSubtitles(parent_imdb_id=id_tv_show, order_by="download_count",
+                                                      order_direction="desc", languages='en', season_number=season,
+                                                      episode_number=eps)
+                sub_id = subtitlesResultList['data'][0]['attributes']['files'][0]['file_id']
+                sub_title = sanitize_title(subtitlesResultList['data'][0]['attributes']['feature_details']['parent_title'])
+                episode_path = os.path.join(downloaded_en_dir, sub_title, f"episode_{eps}")
+                download_and_save_subtitle(sub_id, f'episode_{eps}', episode_path, username, password)
 
 
 def selection_folder():
@@ -101,24 +106,28 @@ def selection_file(parent_path):
             list_file['Directory Name'].append(dirs)
 
         display_list = '\n'.join([f"{no}: {name}" for no, name in zip(list_file['No'], list_file['Directory Name'])])
-        file_selection = int(input(f"""
+        file_selection = input(f"""
         Choose Your File That You Want to Change:
         {display_list}
         0: Go back to folder selection
         999: Exit
         Your Answer (Choose one):
-        """))
+        """)
 
         if file_selection == 0:
             return None
         if file_selection == 999:
             sys.exit()
-        elif 1 <= file_selection <= len(list_file['Directory Name']):
-            file_answer = list_file['Directory Name'][file_selection - 1]
-            print(f"You selected: {file_answer}")
-            return file_answer
-        else:
-            print("Invalid file selection, please try again.")
+        try:
+            selected_numbers = list(map(int, file_selection.split(',')))
+            if all(1 <= num <= len(list_file['Directory Name']) for num in selected_numbers):
+                selected_files = [list_file['Directory Name'][num - 1] for num in selected_numbers]
+                print(f"You selected: {', '.join(selected_files)}")
+                return selected_files
+            else:
+                print("Invalid file selection, please try again.")
+        except ValueError:
+            print("Invalid input format, please enter numbers separated by commas.")
 
 
 def sync_sub(from_eps, to_eps, time_change):
@@ -134,19 +143,19 @@ def sync_sub(from_eps, to_eps, time_change):
     while True:
         parent_path = selection_folder()
         while True:
-            file_answer = selection_file(parent_path)
-            if file_answer is None:
+            file_answers = selection_file(parent_path)
+            if file_answers is None:
                 break
-
-            if type_mode == 1:
-                input_path = os.path.join(parent_path, file_answer, f"{file_answer}.srt")
-                target_path = os.path.join(sync_subtitle, file_answer)
-                sync_sub_and_save(input_path, target_path, f"{file_answer}.srt", time_change)
-            else:
-                for eps in range(from_eps, to_eps + 1):
-                    input_path = os.path.join(parent_path, file_answer, f"episode_{eps}", f"episode_{eps}.srt")
-                    target_path = os.path.join(sync_subtitle, file_answer, f"episode_{eps}")
-                    sync_sub_and_save(input_path, target_path, f"episode_{eps}.srt", time_change)
+            for file_answer in file_answers:
+                if type_mode == 1:
+                    input_path = os.path.join(parent_path, file_answer, f"{file_answer}.srt")
+                    target_path = os.path.join(sync_subtitle, file_answer)
+                    sync_sub_and_save(input_path, target_path, f"{file_answer}.srt", time_change)
+                else:
+                    for eps in range(from_eps, to_eps + 1):
+                        input_path = os.path.join(parent_path, file_answer, f"episode_{eps}", f"episode_{eps}.srt")
+                        target_path = os.path.join(sync_subtitle, file_answer, f"episode_{eps}")
+                        sync_sub_and_save(input_path, target_path, f"episode_{eps}.srt", time_change)
 
 
 def translate(from_eps, to_eps, target_language):
@@ -163,19 +172,19 @@ def translate(from_eps, to_eps, target_language):
     while True:
         parent_path = selection_folder()
         while True:
-            file_answer = selection_file(parent_path)
-            if file_answer is None:
+            file_answers = selection_file(parent_path)
+            if file_answers is None:
                 break
-
-            if type_mode == 1:
-                input_path = os.path.join(parent_path, file_answer, f"{file_answer}.srt")
-                target_path = os.path.join(translated_dir, file_answer)
-                translate_sub_and_save(input_path, target_path, f"{file_answer}.srt", target_language=target_language)
-            else:
-                for eps in range(from_eps, to_eps + 1):
-                    input_path = os.path.join(parent_path, file_answer, f"episode_{eps}", f"episode_{eps}.srt")
-                    target_path = os.path.join(translated_dir, file_answer, f"episode_{eps}")
-                    translate_sub_and_save(input_path, target_path, f"episode_{eps}.srt", target_language=target_language)
+            for file_answer in file_answers:
+                if type_mode == 1:
+                    input_path = os.path.join(parent_path, file_answer, f"{file_answer}.srt")
+                    target_path = os.path.join(translated_dir, file_answer)
+                    translate_sub_and_save(input_path, target_path, f"{file_answer}.srt", target_language=target_language)
+                else:
+                    for eps in range(from_eps, to_eps + 1):
+                        input_path = os.path.join(parent_path, file_answer, f"episode_{eps}", f"episode_{eps}.srt")
+                        target_path = os.path.join(translated_dir, file_answer, f"episode_{eps}")
+                        translate_sub_and_save(input_path, target_path, f"episode_{eps}.srt", target_language=target_language)
 
 
 def llm_translate(from_eps, to_eps, target_language):
@@ -192,21 +201,21 @@ def llm_translate(from_eps, to_eps, target_language):
     while True:
         parent_path = selection_folder()
         while True:
-            file_answer = selection_file(parent_path)
-            if file_answer is None:
+            file_answers = selection_file(parent_path)
+            if file_answers is None:
                 break
-
-            if type_mode == 1:
-                input_path = os.path.join(parent_path, file_answer, f"{file_answer}.srt")
-                target_path = os.path.join(translated_dir, file_answer)
-                llm_translate_sub_and_save(input_path, target_path,
-                                           f"{file_answer}.srt", target_language=target_language)
-            else:
-                for eps in range(from_eps, to_eps + 1):
-                    input_path = os.path.join(parent_path, file_answer, f"episode_{eps}", f"episode_{eps}.srt")
-                    target_path = os.path.join(translated_dir, file_answer, f"episode_{eps}")
+            for file_answer in file_answers:
+                if type_mode == 1:
+                    input_path = os.path.join(parent_path, file_answer, f"{file_answer}.srt")
+                    target_path = os.path.join(translated_dir, file_answer)
                     llm_translate_sub_and_save(input_path, target_path,
-                                               f"episode_{eps}.srt", target_language=target_language)
+                                               f"{file_answer}.srt", target_language=target_language)
+                else:
+                    for eps in range(from_eps, to_eps + 1):
+                        input_path = os.path.join(parent_path, file_answer, f"episode_{eps}", f"episode_{eps}.srt")
+                        target_path = os.path.join(translated_dir, file_answer, f"episode_{eps}")
+                        llm_translate_sub_and_save(input_path, target_path,
+                                                   f"episode_{eps}.srt", target_language=target_language)
 
 # def film_type():
 #     while True:
@@ -278,7 +287,7 @@ if __name__ == "__main__":
     target_language = conf['TRANSLATE']['TARGET_LANGUAGE']
     model_llm = conf['TRANSLATE']['LLM_MODEL']
     url = conf['TRANSLATE']['LLM_URL']
-    id_movie = conf['IMDB_ID_MOVIES']
+    id_movies = conf['IMDB_ID_MOVIES']
 
     if type_mode == 1:
         translated_dir = os.path.join(os.getcwd(), 'data_subtitles', 'movies', 'translated_subtitle')
@@ -290,7 +299,7 @@ if __name__ == "__main__":
         sync_subtitle = os.path.join(os.getcwd(), 'data_subtitles', 'tv_show', 'sync_subtitle')
 
     if mode == 1:
-        download_sub(id_movie, id_tv_show, season, from_eps, to_eps, username, password)
+        download_sub(id_movies, id_tv_show, season, from_eps, to_eps, username, password)
 
     elif mode == 2:
         sync_sub(from_eps, to_eps, time_change)
